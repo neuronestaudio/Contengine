@@ -1,5 +1,5 @@
 import Shell from "@/components/Shell";
-import PostGrid from "@/components/PostGrid";
+import PostsView from "@/components/PostsView";
 import AutoScheduleBar from "@/components/AutoScheduleBar";
 import { list_posts, list_clients } from "@/lib/tools";
 
@@ -17,15 +17,50 @@ export default async function ApprovalPage() {
       title="Awaiting Approval"
       subtitle="Review rendered posts, edit captions, approve, then schedule."
     >
-      <PostGrid posts={awaiting} emptyText="Nothing awaiting approval." />
+      <PostsView
+        posts={awaiting}
+        storageKey="view-approval"
+        actions={[
+          {
+            label: "Approve selected",
+            tool: "approve_post",
+            className: "success",
+            confirm: "Approve these posts for scheduling?",
+          },
+          {
+            label: "Delete selected",
+            tool: "delete_post",
+            className: "danger",
+            confirm: "Delete these posts and their rendered images?",
+          },
+        ]}
+        emptyText="Nothing awaiting approval."
+      />
 
       <h1 style={{ marginTop: 40 }}>Approved — ready to schedule</h1>
       <p className="subtitle">
-        Schedule individually, use the next available slot, or auto-schedule everything for a
-        client.
+        Schedule individually, bulk-schedule into the next available slots, or auto-schedule
+        everything for a client.
       </p>
       {clients.length > 0 && <AutoScheduleBar clients={clients} />}
-      <PostGrid posts={approved} emptyText="No approved posts waiting for a slot." />
+      <PostsView
+        posts={approved}
+        storageKey="view-approved"
+        actions={[
+          {
+            label: "Schedule to next slots",
+            tool: "schedule_next_available_slot",
+            confirm: "Schedule these posts into each client's next available slots?",
+          },
+          {
+            label: "Delete selected",
+            tool: "delete_post",
+            className: "danger",
+            confirm: "Delete these posts and their rendered images?",
+          },
+        ]}
+        emptyText="No approved posts waiting for a slot."
+      />
     </Shell>
   );
 }

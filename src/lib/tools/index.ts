@@ -16,7 +16,7 @@ import { publishToFacebook, publishToInstagram } from "@/lib/meta";
 import { nextAvailableSlot, orderByPillarRotation } from "@/lib/scheduling";
 import type { Client, Platform, Post, PostStatus } from "@/lib/types";
 
-const POST_SELECT = "*, clients(id, name, timezone)";
+const POST_SELECT = "*, clients(id, name, timezone, preferred_times, preferred_days)";
 
 function db() {
   return supabaseAdmin();
@@ -324,6 +324,25 @@ export async function retry_failed_post(params: { post_id: string }): Promise<Po
   return publish_post({ post_id: post.id });
 }
 
+export async function delete_post(params: { post_id: string }): Promise<{ deleted: string }> {
+  const post = await getPostOrThrow(params.post_id);
+  if (post.status === "publishing") {
+    throw new Error("Post is mid-publish — wait for it to finish, then delete");
+  }
+  // Clean up rendered PNGs from storage (best-effort).
+  const paths = (post.rendered_media || []).map((m) => m.path).filter(Boolean);
+  if (paths.length) {
+    try {
+      await db().storage.from("renders").remove(paths);
+    } catch {
+      /* orphaned files are harmless */
+    }
+  }
+  const { error } = await db().from("posts").delete().eq("id", post.id);
+  if (error) throw new Error(`Failed to delete post: ${error.message}`);
+  return { deleted: post.id };
+}
+
 // ---------------------------------------------------------------------------
 // Clients
 // ---------------------------------------------------------------------------
@@ -400,6 +419,7 @@ export const TOOLS = {
   publish_post,
   list_failed_posts,
   retry_failed_post,
+  delete_post,
   list_clients,
   upsert_client,
   ingest_post,

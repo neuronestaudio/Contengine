@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Client, Platform } from "@/lib/types";
 
@@ -20,7 +20,12 @@ interface ExtractedPost {
  * The slide is laid out at its design width (e.g. 640px wide, 4:5), then
  * scaled up to fill 1080x1350 — so it renders exactly like the preview page.
  */
-function wrapSlide(head: string, slideHtml: string, designW: number): string {
+function wrapSlide(
+  head: string,
+  slideHtml: string,
+  designW: number,
+  sharedAssets = ""
+): string {
   const designH = designW * 1.25; // 4:5
   const scale = W / designW;
   return `<!doctype html><html><head>${head}<style>
@@ -28,7 +33,11 @@ html,body{margin:0!important;padding:0!important;width:${W}px;height:${H}px;over
 #__stage{width:${designW}px;height:${designH}px;transform:scale(${scale});transform-origin:top left;position:relative;}
 #__stage .frame{width:100%;height:100%;max-width:none;aspect-ratio:auto;border:0!important;border-radius:0!important;}
 #__stage .slide{display:flex!important;}
-</style></head><body><div id="__stage"><div class="frame">${slideHtml}</div></div></body></html>`;
+/* Photo treatment: keep text-protection at the bottom but let colour through.
+   Overrides the template's heavy desaturation/darkening. */
+#__stage .hero-img{filter:saturate(.95) brightness(.8) contrast(1.05)!important;}
+#__stage .slide.photo .hero::after{background:linear-gradient(180deg,rgba(10,10,12,.25) 0%,rgba(10,10,12,.18) 16%,rgba(10,10,12,.5) 48%,rgba(10,10,12,.9) 80%,#0a0a0c 100%)!important;}
+</style></head><body>${sharedAssets}<div id="__stage"><div class="frame">${slideHtml}</div></div></body></html>`;
 }
 
 /**
@@ -49,7 +58,27 @@ function extractPosts(
   } catch {
     return [{ title: fileName, caption: "", slides: [raw] }];
   }
-  const head = doc.head?.innerHTML ?? "";
+  // Scripts are never needed in a static 1080x1350 render and can hang the
+  // renderer (e.g. editor-injected blob: scripts) — strip them everywhere.
+  doc.querySelectorAll("script").forEach((s) => s.remove());
+
+  // Carry EVERY stylesheet in the document, in document order — WYSIWYG
+  // editors append updated styles at the END OF THE BODY, not the head.
+  // Only taking head styles is how gradients/typography silently go missing.
+  const head =
+    `<meta charset="utf-8">` +
+    Array.from(doc.querySelectorAll("style, link[rel='stylesheet']"))
+      .map((el) => el.outerHTML)
+      .join("");
+
+  // Shared SVG asset blocks (gradients/filters/symbols defined once at page
+  // level and referenced by every slide via url(#id) / <use href="#id">).
+  // These MUST travel with each extracted slide or gradients render black.
+  const sharedAssets = Array.from(doc.querySelectorAll("svg"))
+    .filter((s) => s.querySelector("defs, symbol") && !s.closest(".frame"))
+    .map((s) => s.outerHTML)
+    .join("");
+
   const frames = Array.from(doc.querySelectorAll(".frame"));
 
   if (frames.length && doc.querySelector(".frame .slide")) {
@@ -61,7 +90,7 @@ function extractPosts(
         `${fileName} · post ${fi + 1}`;
       const caption = set?.querySelector(".caption p")?.textContent?.trim() ?? "";
       const slides = Array.from(frame.querySelectorAll(".slide")).map((el) =>
-        wrapSlide(head, el.outerHTML, designW)
+        wrapSlide(head, el.outerHTML, designW, sharedAssets)
       );
       return { title: label, caption, slides };
     });
@@ -74,7 +103,7 @@ function extractPosts(
       {
         title: fileName,
         caption: "",
-        slides: generic.map((el) => wrapSlide(head, el.outerHTML, designW)),
+        slides: generic.map((el) => wrapSlide(head, el.outerHTML, designW, sharedAssets)),
       },
     ];
   }
@@ -84,6 +113,15 @@ function extractPosts(
 }
 
 function SlidePreview({ html }: { html: string }) {
+  // Blob URL instead of srcDoc: handles multi-MB documents (embedded photos)
+  // and avoids SVG url(#id) resolution quirks inside srcdoc iframes.
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [html]);
+
   return (
     <div
       style={{
@@ -96,19 +134,20 @@ function SlidePreview({ html }: { html: string }) {
         flexShrink: 0,
       }}
     >
-      <iframe
-        title="slide preview"
-        srcDoc={html}
-        sandbox="allow-scripts"
-        style={{
-          width: W,
-          height: H,
-          border: 0,
-          transform: `scale(${PREVIEW_SCALE})`,
-          transformOrigin: "top left",
-          pointerEvents: "none",
-        }}
-      />
+      {url && (
+        <iframe
+          title="slide preview"
+          src={url}
+          style={{
+            width: W,
+            height: H,
+            border: 0,
+            transform: `scale(${PREVIEW_SCALE})`,
+            transformOrigin: "top left",
+            pointerEvents: "none",
+          }}
+        />
+      )}
     </div>
   );
 }

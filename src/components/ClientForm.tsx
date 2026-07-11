@@ -103,16 +103,16 @@ export default function ClientForm({ client }: { client?: Client }) {
       })()}
 
       <label>Preferred publishing days</label>
-      <div className="checks">
+      <div className="day-row">
         {DAYS.map((d, i) => (
-          <label key={d}>
-            <input
-              type="checkbox"
-              checked={(c.preferred_days || []).includes(i)}
-              onChange={() => toggleDay(i)}
-            />
+          <button
+            key={d}
+            type="button"
+            className={`day-btn${(c.preferred_days || []).includes(i) ? " on" : ""}`}
+            onClick={() => toggleDay(i)}
+          >
             {d}
-          </label>
+          </button>
         ))}
       </div>
 

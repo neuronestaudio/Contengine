@@ -15,7 +15,36 @@ async function callTool(name: string, body: Record<string, unknown>) {
   return json.result;
 }
 
-export default function PostCard({ post }: { post: Post & { clients?: { name: string } } }) {
+type CardPost = Post & {
+  clients?: {
+    name: string;
+    timezone?: string;
+    preferred_times?: string[];
+    preferred_days?: number[];
+  };
+};
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Next occurrence of the client's preferred day + first preferred time. */
+function defaultScheduleTime(post: CardPost): string {
+  const times = post.clients?.preferred_times?.length ? post.clients.preferred_times : ["09:00"];
+  const days = post.clients?.preferred_days ?? [];
+  const [h, m] = (times[0] || "09:00").split(":").map(Number);
+  const d = new Date();
+  d.setHours(Number.isNaN(h) ? 9 : h, Number.isNaN(m) ? 0 : m, 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  if (days.length) {
+    let guard = 0;
+    while (!days.includes(d.getDay()) && guard < 14) {
+      d.setDate(d.getDate() + 1);
+      guard++;
+    }
+  }
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export default function PostCard({ post }: { post: CardPost }) {
   const router = useRouter();
   const [caption, setCaption] = useState(post.caption);
   const [platforms, setPlatforms] = useState<Platform[]>(post.platforms || []);
@@ -25,6 +54,7 @@ export default function PostCard({ post }: { post: Post & { clients?: { name: st
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [schedOpen, setSchedOpen] = useState(false);
 
   const run = async (label: string, fn: () => Promise<unknown>) => {
     setBusy(label);
@@ -86,6 +116,44 @@ export default function PostCard({ post }: { post: Post & { clients?: { name: st
         <button className="secondary" onClick={saveCaption} disabled={!!busy}>
           {busy === "caption" ? "Saving…" : "Save caption"}
         </button>
+      )}
+
+      {schedOpen && (
+        <div className="modal-overlay" onClick={() => setSchedOpen(false)}>
+          <div className="modal" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
+            <strong>{status === "scheduled" ? "Reschedule post" : "Schedule post"}</strong>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Pre-filled with {post.clients?.name || "the client"}&apos;s preferred posting time —
+              adjust if needed.
+            </span>
+            <input
+              type="datetime-local"
+              autoFocus
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+            />
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button className="secondary" onClick={() => setSchedOpen(false)}>
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setSchedOpen(false);
+                  await run("schedule", () =>
+                    callTool(status === "scheduled" ? "reschedule_post" : "schedule_post", {
+                      post_id: post.id,
+                      scheduled_at: new Date(when).toISOString(),
+                      platforms,
+                    })
+                  );
+                }}
+                disabled={!!busy || !when}
+              >
+                OK — {status === "scheduled" ? "reschedule" : "schedule"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {editorOpen && (
@@ -165,25 +233,14 @@ export default function PostCard({ post }: { post: Post & { clients?: { name: st
 
         {(status === "approved" || status === "scheduled") && (
           <>
-            <input
-              type="datetime-local"
-              style={{ width: 200 }}
-              value={when}
-              onChange={(e) => setWhen(e.target.value)}
-            />
             <button
-              onClick={() =>
-                run("schedule", () =>
-                  callTool(status === "scheduled" ? "reschedule_post" : "schedule_post", {
-                    post_id: post.id,
-                    scheduled_at: new Date(when).toISOString(),
-                    platforms,
-                  })
-                )
-              }
-              disabled={!!busy || !when}
+              onClick={() => {
+                if (!when) setWhen(defaultScheduleTime(post));
+                setSchedOpen(true);
+              }}
+              disabled={!!busy}
             >
-              {busy === "schedule" ? "Scheduling…" : status === "scheduled" ? "Reschedule" : "Schedule"}
+              📅 {status === "scheduled" ? "Reschedule…" : "Schedule…"}
             </button>
             <button
               className="secondary"
@@ -217,6 +274,28 @@ export default function PostCard({ post }: { post: Post & { clients?: { name: st
             disabled={!!busy}
           >
             {busy === "retry" ? "Retrying…" : `Retry (${post.retry_count}/5)`}
+          </button>
+        )}
+
+        {status !== "publishing" && (
+          <button
+            className="secondary"
+            style={{ marginLeft: "auto" }}
+            title={status === "published" ? "Removes the record only — the live post stays on FB/IG" : "Delete this post"}
+            onClick={() => {
+              if (
+                !confirm(
+                  status === "published"
+                    ? "Delete this record? The live post on Facebook/Instagram will NOT be removed."
+                    : "Delete this post and its rendered images?"
+                )
+              )
+                return;
+              run("delete", () => callTool("delete_post", { post_id: post.id }));
+            }}
+            disabled={!!busy}
+          >
+            {busy === "delete" ? "Deleting…" : "🗑 Delete"}
           </button>
         )}
       </div>
