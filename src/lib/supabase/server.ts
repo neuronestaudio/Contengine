@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieMethodsServer } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
@@ -6,6 +6,23 @@ import { cookies } from "next/headers";
  */
 export function supabaseServer() {
   const cookieStore = cookies();
+  // Annotated so the getAll/setAll overload of createServerClient is selected;
+  // without it the callback params infer as implicit `any`.
+  const cookieMethods: CookieMethodsServer = {
+    getAll() {
+      return cookieStore.getAll();
+    },
+    setAll(cookiesToSet) {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          cookieStore.set(name, value, options)
+        );
+      } catch {
+        // Called from a Server Component — middleware refreshes sessions.
+      }
+    },
+  };
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -15,20 +32,7 @@ export function supabaseServer() {
         fetch: (input: RequestInfo | URL, init?: RequestInit) =>
           fetch(input, { ...init, cache: "no-store" }),
       },
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Called from a Server Component — middleware refreshes sessions.
-          }
-        },
-      },
+      cookies: cookieMethods,
     }
   );
 }

@@ -24,7 +24,11 @@ export async function GET(req: NextRequest) {
     .not("approved_at", "is", null)
     .lte("scheduled_at", new Date().toISOString())
     .order("scheduled_at")
-    .limit(10); // bounded batch per run
+    // Bounded batch per run. A carousel to both platforms measures ~90s, so 10
+    // would exceed maxDuration and strand posts mid-loop in 'publishing' — a
+    // state the query above never picks back up. At 2/run on a 5-minute
+    // schedule this still clears 24 posts/hour.
+    .limit(2);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

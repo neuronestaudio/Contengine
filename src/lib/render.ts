@@ -22,12 +22,35 @@ async function launchBrowser(): Promise<Browser> {
   }
 
   // Vercel / AWS Lambda: serverless chromium build.
-  const chromium = (await import("@sparticuz/chromium")).default;
-  return pw.launch({
-    args: chromium.args,
-    executablePath: await chromium.executablePath(),
-    headless: true,
-  });
+  //
+  // @sparticuz/chromium decides whether it is on Lambda — and therefore whether
+  // to extract its bundled shared libraries (libnss3 et al) and set
+  // LD_LIBRARY_PATH — purely by string-matching AWS_EXECUTION_ENV /
+  // AWS_LAMBDA_JS_RUNTIME. Vercel sets neither, so both of its checks return
+  // false, no libs are ever extracted, and Chromium dies with
+  // "libnss3.so: cannot open shared object file".
+  //
+  // Declaring the runtime it expects makes it take the Amazon Linux 2023 path,
+  // which is what Vercel's Node 20+ runtimes are built on. This must happen
+  // before the import below: the library runs the check at module-load time.
+  const realExecEnv = process.env.AWS_EXECUTION_ENV;
+  if (!realExecEnv) {
+    process.env.AWS_EXECUTION_ENV = "AWS_Lambda_nodejs22.x";
+  }
+
+  try {
+    const chromium = (await import("@sparticuz/chromium")).default;
+    const executablePath = await chromium.executablePath();
+    return await pw.launch({
+      args: chromium.args,
+      executablePath,
+      headless: true,
+    });
+  } finally {
+    // Leave the environment as we found it — LD_LIBRARY_PATH/FONTCONFIG_PATH
+    // set by the library above are intentionally kept.
+    if (!realExecEnv) delete process.env.AWS_EXECUTION_ENV;
+  }
 }
 
 /**

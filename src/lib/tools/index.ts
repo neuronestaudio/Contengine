@@ -151,7 +151,9 @@ export async function render_post(params: { post_id: string }): Promise<Post> {
   if (!post.slides?.length) throw new Error("Post has no slides");
 
   const media = await renderSlides(post.id, post.slides);
-  const patch: Record<string, unknown> = { rendered_media: media };
+  // Clear any error from an earlier attempt, otherwise a post that has just
+  // rendered successfully still shows the old failure in the UI.
+  const patch: Record<string, unknown> = { rendered_media: media, error_message: null };
   // Fresh ready posts move to awaiting_approval once rendered.
   if (post.status === "ready" || post.status === "draft") {
     patch.status = "awaiting_approval" satisfies PostStatus;

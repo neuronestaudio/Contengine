@@ -27,7 +27,9 @@ a { color: var(--accent); text-decoration: none; }
   width: 220px; flex-shrink: 0; background: var(--panel);
   border-right: 1px solid var(--border); padding: 20px 12px;
   position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column;
 }
+.sidebar nav { flex: 1; }
 .sidebar .logo { font-weight: 700; font-size: 18px; padding: 0 10px 18px; letter-spacing: 0.5px; }
 .sidebar nav a {
   display: block; padding: 9px 10px; border-radius: 8px; color: var(--muted); margin-bottom: 2px;
@@ -163,6 +165,43 @@ th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spa
 }
 .modal-textarea {
   min-height: 45vh; font-size: 15px; line-height: 1.6; flex: 1;
+}
+
+/* Help modal */
+.help-trigger {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+  width: 100%; text-align: left; font-weight: 600; padding: 9px 10px; flex-shrink: 0;
+}
+.help-trigger:hover { color: var(--text); border-color: var(--accent); filter: none; }
+.help-modal { width: min(680px, 100%); gap: 0; padding: 0; overflow: hidden; }
+.help-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.help-title { font-size: 18px; margin: 0; }
+.help-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+.help-step { display: flex; gap: 14px; align-items: flex-start; }
+.help-num {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.help-step-title { font-weight: 600; margin-bottom: 3px; }
+.help-step-body { color: var(--muted); margin: 0 0 8px; line-height: 1.65; }
+.help-step-body:last-child { margin-bottom: 0; }
+.help-note {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px;
+}
+.help-note-title { font-weight: 600; margin-bottom: 6px; }
+.help-body code {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  padding: 1px 5px; font-size: 12px; color: var(--text);
+}
+.help-code {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; font-size: 12px; line-height: 1.6; color: var(--text);
+  overflow-x: auto; margin: 10px 0;
 }
 
 /* Dropzone */

@@ -2,6 +2,10 @@
   "name": "contengine",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "//": "Pinned for @sparticuz/chromium: it only extracts the AL2023 libs (libnss3 et al) when the Lambda runtime string reports 20.x or 22.x. On Node 24 it silently falls back to the Amazon Linux 2 libs and Chromium fails to launch.",
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

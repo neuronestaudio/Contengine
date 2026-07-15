@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import HelpModal from "./HelpModal";
 
 const PRIMARY = [
   { href: "/import", label: "Import Posts", color: "var(--accent)" },
@@ -41,6 +42,7 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
+      <HelpModal />
     </aside>
   );
 }

@@ -43,9 +43,26 @@ git branch -M main
 git push -u origin main
 ```
 
-In Vercel: **Import** the repo, add every variable from `.env.example` as environment variables, and deploy. `vercel.json` registers the publish cron (`*/5 * * * *` → `/api/cron/publish`). Vercel sends `Authorization: Bearer $CRON_SECRET` automatically when `CRON_SECRET` is set.
+In Vercel: **Import** the repo, add every variable from `.env.example` as environment variables, and deploy. Do **not** set `LOCAL_CHROME_PATH` in Vercel — `render.ts` checks it first and it would bypass the serverless Chromium build.
 
-> Hobby-plan crons may be limited to once per day; the Pro plan supports every-5-minute schedules. You can also trigger `/api/cron/publish` from any external scheduler with the bearer header.
+### Scheduling the publisher
+
+`vercel.json` deliberately declares **no cron**. A Hobby account rejects any schedule that runs more than once a day, and it fails the *whole deployment* rather than just the cron — so `"crons": [{"schedule": "*/5 * * * *"}]` means nothing deploys at all.
+
+Instead, point an external scheduler (e.g. cron-job.org) at the publish endpoint every 5 minutes:
+
+```
+GET https://<your-app>/api/cron/publish
+Authorization: Bearer <CRON_SECRET>
+```
+
+The endpoint 401s without that header. Publishing a carousel to both platforms takes ~90s, so a scheduler with a short response timeout may log the call as failed while it actually succeeds — confirm via **Published Content**, not the scheduler's log. `/api/cron/publish` publishes at most 2 posts per run to stay inside `maxDuration`; on a 5-minute schedule that clears 24 posts/hour.
+
+On the Pro plan you can drop the external scheduler and restore `"crons": [{ "path": "/api/cron/publish", "schedule": "*/5 * * * *" }]` — Vercel then sends the `CRON_SECRET` bearer automatically.
+
+### Node.js version
+
+Pinned to **22.x** via `engines` in `package.json`. Vercel's project setting may still read 24.x; `engines` overrides it for the function runtime (the dashboard shows a "Node.js Version Override" badge). This matters because `@sparticuz/chromium` detects Lambda by string-matching `AWS_EXECUTION_ENV`, which Vercel never sets — see the comment in `src/lib/render.ts`.
 
 ### 4. Meta (Facebook + Instagram) per client
 
