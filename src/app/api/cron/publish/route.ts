@@ -65,10 +65,32 @@ async function publishAll(ids: string[]): Promise<PublishResult[]> {
  * back. Only use it from a caller with a long timeout — the GitHub Actions
  * manual trigger does this so it can surface per-post failures.
  */
+/**
+ * The shared secret may arrive as `Authorization: Bearer <secret>` (what
+ * Vercel Cron sends), as the bare secret, or as ?key=<secret>.
+ *
+ * The "Bearer" prefix is a convention, not a security control — the secret is
+ * what authenticates. Matching the header byte-for-byte meant a value pasted
+ * into a scheduler's header box without the space after "Bearer" produced a
+ * 401, which reads as "the endpoint is down" and silently stops all
+ * publishing. Accept the reasonable variants instead.
+ */
+function isAuthorized(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+
+  const header = req.headers.get("authorization")?.trim() ?? "";
+  if (header.replace(/^bearer\s*/i, "") === secret) return true;
+
+  return req.nextUrl.searchParams.get("key") === secret;
+}
+
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized(req)) {
+    return NextResponse.json(
+      { error: "Unauthorized: send 'Authorization: Bearer <CRON_SECRET>' or ?key=<CRON_SECRET>" },
+      { status: 401 }
+    );
   }
 
   let due: string[];
