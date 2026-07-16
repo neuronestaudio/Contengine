@@ -32,7 +32,13 @@ function wrapSlide(
 html,body{margin:0!important;padding:0!important;width:${W}px;height:${H}px;overflow:hidden;background:#0d0c0b;}
 #__stage{width:${designW}px;height:${designH}px;transform:scale(${scale});transform-origin:top left;position:relative;}
 #__stage .frame{width:100%;height:100%;max-width:none;aspect-ratio:auto;border:0!important;border-radius:0!important;}
-#__stage .slide{display:flex!important;}
+/* Force the slide visible. Carousel-viewer decks (a .stage/#deck showing one
+   .slide at a time) hide every non-active slide with opacity:0 / visibility:
+   hidden, revealing it only via a data-active/.active marker on an ancestor
+   deck. Extracted standalone, a slide keeps that hidden base state and renders
+   blank. Exactly one slide is placed here per render, so forcing it on is
+   always correct — and a no-op for formats whose slides are already visible. */
+#__stage .slide{display:flex!important;opacity:1!important;visibility:visible!important;}
 /* Photo treatment: keep text-protection at the bottom but let colour through.
    Overrides the template's heavy desaturation/darkening. */
 #__stage .hero-img{filter:saturate(.95) brightness(.8) contrast(1.05)!important;}
@@ -94,6 +100,34 @@ function extractPosts(
       );
       return { title: label, caption, slides };
     });
+  }
+
+  // Single-carousel file: multiple `.slide` elements NOT wrapped in per-post
+  // `.frame` blocks. This is a self-contained carousel viewer (a `.stage` /
+  // `.deck` with prev/next nav that shows one `.slide` at a time), so the whole
+  // file is ONE post whose `.slide`s are its images. Without this branch the
+  // file falls through to the single-slide fallback below and every slide but
+  // the active one is lost.
+  const looseSlides = Array.from(doc.querySelectorAll(".slide"));
+  if (looseSlides.length > 1) {
+    const label =
+      doc.querySelector(".set-label")?.textContent?.trim() ||
+      doc.querySelector(".set-title")?.textContent?.trim() ||
+      doc.title?.trim() ||
+      fileName;
+    const caption = doc.querySelector(".caption p")?.textContent?.trim() ?? "";
+    // These slides are `position:absolute; inset:0` filling the deck's stage,
+    // i.e. authored at the full output canvas — so render 1:1 (scale = W/W)
+    // regardless of the Design width field, which targets the smaller `.frame`
+    // card format. Scaling a full-canvas slide down to 640 then back up
+    // reflows its fixed-px type and breaks the layout.
+    return [
+      {
+        title: label,
+        caption,
+        slides: looseSlides.map((el) => wrapSlide(head, el.outerHTML, W, sharedAssets)),
+      },
+    ];
   }
 
   // Generic multi-slide file (elements marked as slides at top level).

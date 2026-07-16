@@ -106,11 +106,13 @@ export default function HelpModal() {
               <div className="help-note">
                 <div className="help-note-title">What your HTML should look like</div>
                 <p className="help-step-body">
-                  Each <code>.frame</code> in the file becomes one post, and every <code>.slide</code>{" "}
-                  inside it becomes one image. A <code>.caption</code> next to the frame is used as
-                  the caption and <code>.set-label</code> as the title — so a normal carousel
-                  preview page just works. Drop in a plain HTML file with none of those and you get
-                  a single one-image post.
+                  Two carousel layouts are detected automatically. A{" "}
+                  <strong>multi-carousel sheet</strong> — several <code>.frame</code> blocks, each
+                  holding <code>.slide</code> images — becomes one post per frame, taking its title
+                  from <code>.set-label</code> and caption from a nearby <code>.caption</code>. A{" "}
+                  <strong>single-deck file</strong> — one carousel viewer with a run of{" "}
+                  <code>.slide</code> panels shown one at a time — becomes one post with all those
+                  slides. Drop in a plain HTML file with neither and you get a single one-image post.
                 </p>
                 <p className="help-step-body">
                   Slides are designed at <strong>640px wide, 4:5</strong> and scaled up to
