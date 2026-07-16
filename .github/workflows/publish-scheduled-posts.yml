@@ -1,0 +1,80 @@
+name: Publish scheduled posts
+
+# Drives /api/cron/publish, which publishes any post that is approved and due.
+# This lives here rather than in vercel.json because Vercel's Hobby plan rejects
+# any cron running more than once a day — and rejects the whole deployment with
+# it. On the Pro plan this workflow can be deleted and the cron moved back.
+on:
+  schedule:
+    # Every 5 minutes. GitHub queues scheduled runs on a best-effort basis and
+    # can fire late under load, so treat a post's scheduled_at as "no earlier
+    # than", not an exact time.
+    - cron: "*/5 * * * *"
+  # Lets you trigger a run by hand from the Actions tab to test without waiting.
+  workflow_dispatch:
+
+# Never let two publish runs overlap: both would see the same due posts before
+# either flipped them to 'publishing', and could double-post to Meta.
+concurrency:
+  group: publish-scheduled-posts
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger publisher
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ vars.APP_URL || 'https://contengine-black.vercel.app' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CRON_SECRET repository secret is not set — the endpoint will 401."
+            exit 1
+          fi
+
+          # A carousel to both platforms takes ~90s and the route publishes up
+          # to 2 per run, so allow generous headroom before giving up.
+          code=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 420 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL}/api/cron/publish")
+
+          echo "HTTP ${code}"
+          cat response.json
+          echo
+
+          if [ "${code}" = "401" ]; then
+            echo "::error::401 Unauthorized — the CRON_SECRET secret does not match the app's CRON_SECRET env var in Vercel."
+            exit 1
+          fi
+
+          if [ "${code}" != "200" ]; then
+            echo "::error::Publisher returned HTTP ${code}"
+            exit 1
+          fi
+
+          if [ "$(jq -r '.ok' response.json)" != "true" ]; then
+            echo "::error::Publisher reported failure: $(jq -rc '.error // .' response.json)"
+            exit 1
+          fi
+
+          processed=$(jq -r '.processed' response.json)
+          echo "Processed ${processed} post(s)."
+
+          # A 200 only means the batch ran — individual posts can still fail to
+          # reach Meta (expired Page token, etc). Surface those loudly instead
+          # of letting a green check hide them.
+          failures=$(jq -r '[.results[]? | select(.status != "published")] | length' response.json)
+          if [ "${failures}" != "0" ]; then
+            jq -r '.results[]? | select(.status != "published")
+                   | "::error::Post \(.post_id) → \(.status): \(.error // "unknown error")"' response.json
+            exit 1
+          fi
+
+          if [ "${processed}" != "0" ]; then
+            jq -r '.results[]? | "Published \(.post_id)"' response.json
+          fi
