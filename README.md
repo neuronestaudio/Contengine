@@ -49,20 +49,22 @@ In Vercel: **Import** the repo, add every variable from `.env.example` as enviro
 
 `vercel.json` deliberately declares **no cron**. A Hobby account rejects any schedule that runs more than once a day, and it fails the *whole deployment* rather than just the cron — so `"crons": [{"schedule": "*/5 * * * *"}]` means nothing deploys at all.
 
-Instead, `.github/workflows/publish-scheduled-posts.yml` pings the endpoint every 5 minutes:
+Instead, an external scheduler pings the endpoint every 5 minutes:
 
 ```
 GET https://<your-app>/api/cron/publish
 Authorization: Bearer <CRON_SECRET>
 ```
 
-It needs one repository secret — **Settings → Secrets and variables → Actions → New repository secret**, named `CRON_SECRET`, set to the same value as `CRON_SECRET` in Vercel. Without it the workflow fails fast with a clear error rather than silently doing nothing. If the app URL changes, set an `APP_URL` repository *variable*. You can run it on demand from the **Actions** tab (`Run workflow`) to test without waiting for the next tick.
+The endpoint 401s without that header. **cron-job.org** is what this project uses. GitHub Actions was tried and rejected: a `*/5` scheduled workflow did not fire once in 28 minutes, because GitHub runs `schedule:` on a best-effort basis and drops runs under load.
 
-Any external scheduler works just as well (cron-job.org, etc.) as long as it sends the bearer header — the endpoint 401s without it. Note that publishing a carousel to both platforms takes ~90s, so a scheduler with a short response timeout (cron-job.org caps at 30s) may log the call as failed while it actually succeeds; confirm via **Published Content**, not the scheduler's log.
+`.github/workflows/publish-scheduled-posts.yml` is kept as a **manual** trigger only (Actions tab → *Run workflow*) for forcing a publish or checking the endpoint. It needs a `CRON_SECRET` repository secret matching Vercel's. Do not re-add a `schedule:` trigger while cron-job.org is active — two schedulers can both pick up the same due post and double-publish.
+
+Publishing a carousel to both platforms takes ~90s, and cron-job.org gives up waiting at 30s, so its log may show a failure while the publish actually completes. Confirm via **Published Content**, not the scheduler's log.
 
 `/api/cron/publish` publishes at most 2 posts per run to stay inside `maxDuration`; on a 5-minute schedule that clears 24 posts/hour.
 
-**Scheduling is not punctual by design.** A post only publishes on the next tick after it comes due, and GitHub's scheduler can itself fire several minutes late under load. Treat `scheduled_at` as *no earlier than*, and schedule at least 5–10 minutes ahead. To post at an exact moment, use **Publish now** on the post card — it bypasses the schedule deliberately.
+**Scheduling is not punctual by design.** A post publishes on the first tick after it comes due, so `scheduled_at` is a floor, not an exact time — schedule at least 5 minutes ahead. To post at an exact moment, use **Publish now** on the post card, which bypasses the schedule deliberately.
 
 On the Pro plan you can drop the external scheduler and restore `"crons": [{ "path": "/api/cron/publish", "schedule": "*/5 * * * *" }]` — Vercel then sends the `CRON_SECRET` bearer automatically.
 
