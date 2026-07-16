@@ -95,8 +95,8 @@ export async function GET(req: NextRequest) {
     await publishAll(due);
   }
 
-  return NextResponse.json(
-    { ok: true, due: due.length, started: true, results: [] },
-    { status: 202 }
-  );
+  // Deliberately 200 rather than a semantically-nicer 202: schedulers vary in
+  // what they count as success, and one that flags 202 would mark every real
+  // publish as a failure — the exact thing the background hand-off avoids.
+  return NextResponse.json({ ok: true, due: due.length, started: true, results: [] });
 }

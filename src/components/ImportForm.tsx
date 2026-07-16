@@ -152,9 +152,25 @@ function SlidePreview({ html }: { html: string }) {
   );
 }
 
+const LAST_CLIENT_KEY = "contengine:lastClientId";
+
 export default function ImportForm({ clients }: { clients: Pick<Client, "id" | "name">[] }) {
   const router = useRouter();
+  // Clients come back ordered by name, so whoever sorts first would otherwise
+  // be the default on every import. Start there, then restore the last client
+  // this browser actually used.
   const [clientId, setClientId] = useState(clients[0]?.id ?? "");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(LAST_CLIENT_KEY);
+    // Ignore a saved id whose client has since been deleted.
+    if (saved && clients.some((c) => c.id === saved)) setClientId(saved);
+  }, [clients]);
+
+  const chooseClient = (id: string) => {
+    setClientId(id);
+    window.localStorage.setItem(LAST_CLIENT_KEY, id);
+  };
   const [category, setCategory] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>(["facebook", "instagram"]);
   const [renderNow, setRenderNow] = useState(true);
@@ -241,7 +257,7 @@ export default function ImportForm({ clients }: { clients: Pick<Client, "id" | "
         <div className="row">
           <div style={{ flex: 2 }}>
             <label>Client</label>
-            <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+            <select value={clientId} onChange={(e) => chooseClient(e.target.value)}>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
