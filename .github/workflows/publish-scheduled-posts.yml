@@ -39,12 +39,16 @@ jobs:
             exit 1
           fi
 
-          # A carousel to both platforms takes ~90s and the route publishes up
-          # to 2 per run, so allow generous headroom before giving up.
+          # ?wait=1 blocks until publishing finishes and returns per-post
+          # results, so a failed publish can be surfaced below. The recurring
+          # scheduler deliberately omits it and gets an immediate ack instead;
+          # this runner has no such timeout pressure. A carousel to both
+          # platforms takes ~90s and the route publishes up to 2 per run, so
+          # allow generous headroom.
           code=$(curl -sS -o response.json -w '%{http_code}' \
             --max-time 420 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "${APP_URL}/api/cron/publish")
+            "${APP_URL}/api/cron/publish?wait=1")
 
           echo "HTTP ${code}"
           cat response.json
