@@ -1,19 +1,20 @@
 name: Publish scheduled posts
 
-# Manual trigger for /api/cron/publish, which publishes any post that is
-# approved and due. Use it to force a publish run without waiting for the
-# scheduler, or to check the endpoint and CRON_SECRET still work.
+# Drives /api/cron/publish, which publishes any post that is approved and due.
 #
-# The recurring schedule deliberately lives OUTSIDE this file, in cron-job.org.
-# A `schedule:` trigger was tried here and did not fire once in 28 minutes on a
-# */5 cron: GitHub runs scheduled workflows on a best-effort basis and openly
-# drops them under load, which is fine for a nightly job and useless for
-# publishing client content at a set time.
+# This is the active recurring scheduler. GitHub runs `schedule:` on a
+# best-effort basis and can delay a run by 5-15 minutes under load (and a
+# newly-added schedule can take a while to start firing at all), so treat a
+# post's scheduled_at as "no earlier than", not an exact time. That is fine
+# here: posts are scheduled hours ahead, and a late publish is still a publish.
 #
-# Do NOT re-add `schedule:` while cron-job.org is active. Two schedulers can
-# both read the same due posts before either flips them to 'publishing', and
+# IMPORTANT: run only ONE scheduler. If you re-enable an external scheduler
+# (cron-job.org etc.), disable this `schedule:` trigger — two schedulers can
+# both read the same due post before either flips it to 'publishing' and
 # double-post to Meta.
 on:
+  schedule:
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 # Never let two publish runs overlap: both would see the same due posts before
