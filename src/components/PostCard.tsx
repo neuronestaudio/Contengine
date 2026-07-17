@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Post, Platform } from "@/lib/types";
+import ScheduleModal from "./ScheduleModal";
 
 async function callTool(name: string, body: Record<string, unknown>) {
   const res = await fetch(`/api/tools/${name}`, {
@@ -119,41 +120,23 @@ export default function PostCard({ post }: { post: CardPost }) {
       )}
 
       {schedOpen && (
-        <div className="modal-overlay" onClick={() => setSchedOpen(false)}>
-          <div className="modal" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
-            <strong>{status === "scheduled" ? "Reschedule post" : "Schedule post"}</strong>
-            <span className="muted" style={{ fontSize: 12 }}>
-              Pre-filled with {post.clients?.name || "the client"}&apos;s preferred posting time —
-              adjust if needed.
-            </span>
-            <input
-              type="datetime-local"
-              autoFocus
-              value={when}
-              onChange={(e) => setWhen(e.target.value)}
-            />
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <button className="secondary" onClick={() => setSchedOpen(false)}>
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setSchedOpen(false);
-                  await run("schedule", () =>
-                    callTool(status === "scheduled" ? "reschedule_post" : "schedule_post", {
-                      post_id: post.id,
-                      scheduled_at: new Date(when).toISOString(),
-                      platforms,
-                    })
-                  );
-                }}
-                disabled={!!busy || !when}
-              >
-                OK — {status === "scheduled" ? "reschedule" : "schedule"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ScheduleModal
+          post={post}
+          initialWhen={when || defaultScheduleTime(post)}
+          busy={!!busy}
+          onClose={() => setSchedOpen(false)}
+          onConfirm={async (whenLocal) => {
+            setWhen(whenLocal);
+            setSchedOpen(false);
+            await run("schedule", () =>
+              callTool(status === "scheduled" ? "reschedule_post" : "schedule_post", {
+                post_id: post.id,
+                scheduled_at: new Date(whenLocal).toISOString(),
+                platforms,
+              })
+            );
+          }}
+        />
       )}
 
       {editorOpen && (

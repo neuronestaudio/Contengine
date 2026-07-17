@@ -204,6 +204,50 @@ th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spa
   overflow-x: auto; margin: 10px 0;
 }
 
+/* Schedule modal — inline month picker */
+.sched-modal { width: min(460px, 100%); gap: 12px; }
+.sched-cal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-top: 4px;
+}
+.sched-cal-head button { padding: 4px 12px; }
+.sched-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.sched-dow {
+  text-align: center; color: var(--muted); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.4px; padding-bottom: 2px;
+}
+.sched-cell {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; min-height: 44px; padding: 4px; display: flex;
+  flex-direction: column; align-items: center; gap: 3px; cursor: pointer;
+  font: inherit; transition: border-color 0.12s, background 0.12s;
+}
+.sched-cell:hover:not(:disabled) { border-color: var(--accent); filter: none; }
+.sched-cell.empty { background: transparent; border: 0; cursor: default; min-height: 0; }
+.sched-cell.past { opacity: 0.32; cursor: not-allowed; }
+.sched-cell.today .sched-num { color: var(--accent); font-weight: 700; }
+.sched-cell.selected { border-color: var(--accent); background: rgba(79, 140, 255, 0.16); }
+.sched-num { font-size: 13px; line-height: 1; }
+.sched-dots { display: flex; gap: 3px; align-items: center; min-height: 6px; }
+.sched-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); display: inline-block; }
+.sched-dot.published { background: var(--green); }
+.sched-dot.failed { background: var(--red); }
+.sched-dot.publishing { background: var(--amber); }
+.sched-more { font-size: 9px; color: var(--muted); line-height: 1; }
+.sched-detail {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.sched-time { display: flex; align-items: center; gap: 8px; margin: 0; }
+.sched-time span { font-size: 12px; }
+.sched-time input { width: auto; padding: 4px 8px; }
+.sched-onday { display: flex; flex-wrap: wrap; gap: 6px; }
+.sched-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 10px; font-size: 12px;
+}
+
 /* Dropzone */
 .dropzone {
   border: 2px dashed var(--border); border-radius: 12px; padding: 36px 20px;
