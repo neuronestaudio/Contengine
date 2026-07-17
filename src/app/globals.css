@@ -22,22 +22,35 @@ body {
 }
 a { color: var(--accent); text-decoration: none; }
 
-.layout { display: flex; min-height: 100vh; }
-.sidebar {
-  width: 220px; flex-shrink: 0; background: var(--panel);
-  border-right: 1px solid var(--border); padding: 20px 12px;
-  position: sticky; top: 0; height: 100vh;
-  display: flex; flex-direction: column;
+.layout { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Top navigation bar */
+.topnav {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 20px;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 0 20px; height: 54px;
 }
-.sidebar nav { flex: 1; }
-.sidebar .logo { font-weight: 700; font-size: 18px; padding: 0 10px 18px; letter-spacing: 0.5px; }
-.sidebar nav a {
-  display: block; padding: 9px 10px; border-radius: 8px; color: var(--muted); margin-bottom: 2px;
+.topnav-brand { font-weight: 700; font-size: 16px; letter-spacing: 0.3px; flex-shrink: 0; }
+.topnav-tabs { display: flex; gap: 4px; align-items: stretch; height: 100%; }
+.topnav-tab {
+  display: flex; align-items: center; padding: 0 14px; color: var(--muted);
+  font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px;
 }
-.sidebar nav a:hover { background: var(--panel-2); color: var(--text); }
-.sidebar nav a.active { background: var(--panel-2); color: var(--text); }
-.sidebar nav a.primary-link { font-weight: 600; color: var(--text); border-radius: 0 8px 8px 0; }
-.nav-divider { height: 1px; background: var(--border); margin: 12px 6px; }
+.topnav-tab:hover { color: var(--text); }
+.topnav-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.topnav-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.topnav-more {
+  padding: 6px 10px; border-radius: 8px; color: var(--muted); font-size: 13px;
+}
+.topnav-more:hover { background: var(--panel-2); color: var(--text); }
+.topnav-more.active { color: var(--text); background: var(--panel-2); }
+.topnav .help-trigger { width: auto; margin-left: 6px; padding: 6px 12px; }
+@media (max-width: 720px) {
+  .topnav { flex-wrap: wrap; height: auto; padding: 8px 14px; gap: 10px; }
+  .topnav-tabs { flex-wrap: wrap; }
+  .topnav-right { width: 100%; margin-left: 0; flex-wrap: wrap; }
+}
 
 /* Day toggle buttons (Client Settings) */
 .day-row { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -47,7 +60,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 .day-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .checks { flex-wrap: wrap; }
-.main { flex: 1; padding: 28px 32px; max-width: 1200px; }
+.main { flex: 1; padding: 28px 32px; max-width: 1200px; width: 100%; margin: 0 auto; }
 
 h1 { font-size: 22px; margin: 0 0 4px; }
 .subtitle { color: var(--muted); margin: 0 0 24px; }

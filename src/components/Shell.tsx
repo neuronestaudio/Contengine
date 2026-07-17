@@ -1,4 +1,4 @@
-import Sidebar from "./Sidebar";
+import TopNav from "./TopNav";
 
 export default function Shell({
   title,
@@ -11,7 +11,7 @@ export default function Shell({
 }) {
   return (
     <div className="layout">
-      <Sidebar />
+      <TopNav />
       <main className="main">
         <h1>{title}</h1>
         {subtitle ? <p className="subtitle">{subtitle}</p> : <div style={{ height: 16 }} />}

@@ -1,4 +1,4 @@
-import Sidebar from "@/components/Sidebar";
+import TopNav from "@/components/TopNav";
 
 /**
  * Route-level loading UI. In the App Router this streams to the browser the
@@ -9,7 +9,7 @@ import Sidebar from "@/components/Sidebar";
 export default function Loading() {
   return (
     <div className="layout">
-      <Sidebar />
+      <TopNav />
       <main className="main">
         <div className="skel skel-title" />
         <div className="skel skel-subtitle" />
