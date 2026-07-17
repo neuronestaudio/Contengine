@@ -204,6 +204,18 @@ th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spa
   overflow-x: auto; margin: 10px 0;
 }
 
+/* Loading skeletons */
+@keyframes skel-pulse { 0%,100% { opacity: 0.45; } 50% { opacity: 0.9; } }
+.skel {
+  background: linear-gradient(90deg, var(--panel-2) 0%, var(--border) 50%, var(--panel-2) 100%);
+  border-radius: 8px; animation: skel-pulse 1.1s ease-in-out infinite;
+}
+.skel-title { height: 24px; width: 220px; margin-bottom: 10px; }
+.skel-subtitle { height: 14px; width: 320px; margin-bottom: 4px; }
+.skel-line { height: 12px; width: 100%; }
+.skel-thumb { height: 120px; width: 100%; }
+.skel-btn { height: 30px; width: 88px; }
+
 /* Schedule modal — inline month picker */
 .sched-modal { width: min(460px, 100%); gap: 12px; }
 .sched-cal-head {
