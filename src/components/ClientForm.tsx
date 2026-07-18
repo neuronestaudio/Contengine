@@ -69,13 +69,32 @@ export default function ClientForm({ client }: { client?: Client }) {
       <div className="row">
         <div style={{ flex: 1 }}>
           <label>Facebook Page ID</label>
-          <input value={c.fb_page_id || ""} onChange={(e) => set("fb_page_id", e.target.value)} />
+          {/* Meta IDs are digits only. Strip anything else on input so a stray
+              paste (e.g. "asd17841…") can't corrupt the ID and silently fail
+              every publish. */}
+          <input
+            inputMode="numeric"
+            value={c.fb_page_id || ""}
+            onChange={(e) => set("fb_page_id", e.target.value.replace(/\D/g, ""))}
+          />
         </div>
         <div style={{ flex: 1 }}>
           <label>Instagram user ID</label>
-          <input value={c.ig_user_id || ""} onChange={(e) => set("ig_user_id", e.target.value)} />
+          <input
+            inputMode="numeric"
+            value={c.ig_user_id || ""}
+            onChange={(e) => set("ig_user_id", e.target.value.replace(/\D/g, ""))}
+          />
         </div>
       </div>
+      {(() => {
+        const ig = c.ig_user_id || "";
+        const fb = c.fb_page_id || "";
+        const warn: string[] = [];
+        if (ig && ig.length < 15) warn.push(`Instagram ID looks short (${ig.length} digits; expect ~17)`);
+        if (fb && fb.length < 10) warn.push(`Facebook Page ID looks short (${fb.length} digits)`);
+        return warn.length ? <span className="error-text">⚠ {warn.join("; ")}</span> : null;
+      })()}
 
       <label>Page access token (long-lived; used for both FB and IG)</label>
       <input
