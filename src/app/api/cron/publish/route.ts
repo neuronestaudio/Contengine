@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { publish_post } from "@/lib/tools";
+import { publish_post, retry_failed_post } from "@/lib/tools";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
+
+// Bounded batch per run: a carousel to both platforms measures ~90s, so a
+// larger batch could exceed maxDuration and strand a post mid-loop.
+const BATCH = 2;
+const MAX_RETRIES = 5;
 
 interface PublishResult {
   post_id: string;
@@ -12,36 +17,71 @@ interface PublishResult {
   error?: string;
 }
 
+interface WorkItem {
+  id: string;
+  retry: boolean; // true = a previously-failed post we're re-attempting
+}
+
 /**
- * Find the posts that are due right now.
+ * Find the work for this run: posts that are due to publish, plus any that
+ * FAILED a previous attempt and are still eligible to retry.
  *
- * Bounded batch per run: a carousel to both platforms measures ~90s, so a
- * large batch would exceed maxDuration and strand posts mid-loop in
- * 'publishing' — a state this query never picks back up. At 2/run even a
- * 15-minute schedule clears 8 posts/hour.
+ * The retry sweep is the safety net that matters most: without it, a single
+ * transient Meta error (rate limit, timeout) left a due post stuck in 'failed'
+ * until a human clicked Retry — so a post could silently miss its date. Now the
+ * scheduler re-attempts it automatically (publish_post skips any platform that
+ * already succeeded, so there's no double-post), backing off one attempt per
+ * run up to MAX_RETRIES before it gives up and waits for manual attention.
+ * Fresh due posts take priority; failed retries only use leftover batch slots.
  */
-async function findDuePosts(): Promise<string[]> {
-  const { data, error } = await supabaseAdmin()
+async function findWork(): Promise<WorkItem[]> {
+  const admin = supabaseAdmin();
+  const now = new Date().toISOString();
+
+  const { data: sched, error: e1 } = await admin
     .from("posts")
     .select("id")
     .eq("status", "scheduled")
     .not("approved_at", "is", null)
-    .lte("scheduled_at", new Date().toISOString())
+    .lte("scheduled_at", now)
     .order("scheduled_at")
-    .limit(2);
+    .limit(BATCH);
+  if (e1) throw new Error(e1.message);
 
-  if (error) throw new Error(error.message);
-  return (data || []).map((r) => r.id);
+  const work: WorkItem[] = (sched || []).map((r) => ({ id: r.id, retry: false }));
+
+  const remaining = BATCH - work.length;
+  if (remaining > 0) {
+    const { data: failed, error: e2 } = await admin
+      .from("posts")
+      .select("id")
+      .eq("status", "failed")
+      .not("approved_at", "is", null)
+      .lt("retry_count", MAX_RETRIES)
+      .lte("scheduled_at", now)
+      .order("scheduled_at")
+      .limit(remaining);
+    if (e2) throw new Error(e2.message);
+    for (const r of failed || []) work.push({ id: r.id, retry: true });
+  }
+
+  return work;
 }
 
-async function publishAll(ids: string[]): Promise<PublishResult[]> {
+async function processAll(items: WorkItem[]): Promise<PublishResult[]> {
   const results: PublishResult[] = [];
-  for (const id of ids) {
+  for (const item of items) {
     try {
-      const post = await publish_post({ post_id: id });
-      results.push({ post_id: id, status: post.status, error: post.error_message ?? undefined });
+      const post = item.retry
+        ? await retry_failed_post({ post_id: item.id })
+        : await publish_post({ post_id: item.id });
+      results.push({
+        post_id: item.id,
+        status: post.status,
+        error: post.error_message ?? undefined,
+      });
     } catch (e: any) {
-      results.push({ post_id: id, status: "error", error: e?.message || String(e) });
+      results.push({ post_id: item.id, status: "error", error: e?.message || String(e) });
     }
   }
   return results;
@@ -93,9 +133,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  let due: string[];
+  let work: WorkItem[];
   try {
-    due = await findDuePosts();
+    work = await findWork();
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || String(e) }, { status: 500 });
   }
@@ -104,21 +144,21 @@ export async function GET(req: NextRequest) {
 
   // Nothing to do, or the caller asked to wait: answer synchronously. The idle
   // case is the common one and returns in well under a second.
-  if (wait || due.length === 0) {
-    const results = await publishAll(due);
-    return NextResponse.json({ ok: true, due: due.length, processed: results.length, results });
+  if (wait || work.length === 0) {
+    const results = await processAll(work);
+    return NextResponse.json({ ok: true, due: work.length, processed: results.length, results });
   }
 
   // waitUntil is a no-op outside Vercel's runtime, which would drop the work
   // silently on `next dev` — await it there instead.
   if (process.env.VERCEL) {
-    waitUntil(publishAll(due));
+    waitUntil(processAll(work));
   } else {
-    await publishAll(due);
+    await processAll(work);
   }
 
   // Deliberately 200 rather than a semantically-nicer 202: schedulers vary in
   // what they count as success, and one that flags 202 would mark every real
   // publish as a failure — the exact thing the background hand-off avoids.
-  return NextResponse.json({ ok: true, due: due.length, started: true, results: [] });
+  return NextResponse.json({ ok: true, due: work.length, started: true, results: [] });
 }
